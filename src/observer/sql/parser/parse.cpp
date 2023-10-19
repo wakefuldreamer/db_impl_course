@@ -52,6 +52,39 @@ void value_init_float(Value *value, float v)
   value->data = malloc(sizeof(v));
   memcpy(value->data, &v, sizeof(v));
 }
+bool check_date(int y, int m, int d) {
+    if (y < 0 || m < 1 || m > 12 || d < 1) {
+        return false;  // 年份不能为负，月份必须在1到12之间，日期不能小于1
+    }
+
+    int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};  // 每个月的天数
+    if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) {
+        days_in_month[1] = 29;  // 闰年2月有29天
+    }
+
+    if (d > days_in_month[m - 1]) {
+        return false;  // 日期不能超过该月的天数
+    }
+
+    return true;
+}
+
+int value_init_date(Value *value, const char *v) {
+  // TODO 将 value 的 type 属性修改为日期属性:DATES
+  value->type = DATES;
+  // 从lex的解析中读取 year,month,day
+  int y,m,d;
+  sscanf(v, "%d-%d-%d", &y, &m, &d);//not check return value eq 3, lex guarantee
+  // 对读取的日期做合法性校验
+  bool b = check_date(y,m,d);
+  if(!b) return -1;
+  // TODO 将日期转换成整数
+  int dv = y*10000+m*100+d;
+  // TODO 将value 的 data 属性修改为转换后的日期
+  value->data = malloc(sizeof(dv));//TODO:check malloc failure
+  memcpy(value->data, &dv, sizeof(dv));
+  return 0;
+}
 void value_init_string(Value *value, const char *v)
 {
   value->type = CHARS;

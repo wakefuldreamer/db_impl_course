@@ -204,10 +204,16 @@ void DefaultStorageStage::handle_event(StageEvent *event)
     case SCF_DROP_TABLE: {
 
       // TODO: 拿到要 drop 的表
-
+          // 1. 从storage_event中取出要删除的表的名字
+      const DropTable &drop_table = sql->sstr.drop_table;
+    
       // TODO: 调用drop_table接口，drop_table 要在 handler_ 中实现
+      // 2. 调用DefaultHandler类型的handler_成员变量的drop_table()接口
+      rc = handler_->drop_table(current_db, drop_table.relation_name);
 
       // TODO: 返回结果，带不带换行符都可以
+      // 3. 将结果字符串保存到response中
+      snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
 
     }break;
 

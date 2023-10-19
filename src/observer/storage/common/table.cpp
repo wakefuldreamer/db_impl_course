@@ -121,19 +121,59 @@ RC Table::create(
   return rc;
 }
 
-RC Table::destroy(const char* dir) {
-  //刷新所有脏页
-  RC rc = sync();
-  if(rc != RC::SUCCESS) return rc;
+ RC Table::destroy(const char* dir) {
 
-  //TODO 删除描述表元数据的文件
+     //刷新所有脏页
+     RC rc = sync();
+     if(rc != RC::SUCCESS) return rc;
 
-  //TODO 删除表数据文件
+     //TODO 删除描述表元数据的文件
+// 1. 删除 .table 文件
+     std::string table_meta_file_path = table_meta_file(dir, name());
+     if (remove(table_meta_file_path.c_str()) != 0) {
+          LOG_ERROR("Failed to delete table meta file: %s. Error: %s", table_meta_file_path.c_str(), strerror(errno));
+          return RC::IOERR;
+         }
+     //TODO 删除表数据文件
+     // 2. 删除 .data 文件
+     std::string table_data_file_path = table_data_file(dir, name());
+     if (remove(table_data_file_path.c_str()) != 0) {
+          LOG_ERROR("Failed to delete table data file: %s. Error: %s", table_data_file_path.c_str(), strerror(errno));
+          return RC::IOERR;
+         }
 
-  //TODO 清理所有的索引相关文件数据与索引元数据
+     //TODO 清理所有的索引相关文件数据与索引元数据
+// 3. 删除与该表关联的所有 .index 文件
+     const int index_num = table_meta_.index_num();
+     for (int i = 0; i < index_num; i++) {
+          const IndexMeta *index_meta = table_meta_.index(i);
+          std::string index_file_path = table_index_file(dir, name(), index_meta->name());
 
-  return RC::GENERIC_ERROR;
-}
+          if (remove(index_file_path.c_str()) != 0) {
+               LOG_ERROR("Failed to delete index file: %s. Error: %s", index_file_path.c_str(), strerror(errno));
+               return RC::IOERR;
+              }
+         }
+     // 4. 清理 DiskBufferPool 中的相关资源
+     if (data_buffer_pool_) {
+          // 关闭并释放与该表关联的文件资源
+          rc = data_buffer_pool_->close_file(file_id_);
+          if (rc != RC::SUCCESS) {
+               LOG_ERROR("Failed to release file resources in data_buffer_pool_ for table: %s", name());
+               return rc;
+              }
+          // 清除与该表关联的所有缓存页资源
+        //  rc = data_buffer_pool_-> evict_pages_related_to_file(file_id_);
+          if (rc != RC::SUCCESS) {
+               LOG_ERROR("Failed to evict cache pages in data_buffer_pool_ for table: %s", name());
+               return rc;
+              }
+          data_buffer_pool_ = nullptr; // Assuming the ownership of data_buffer_pool_ is elsewhere (e.g., Singleton pattern)
+         }
+     LOG_INFO("Successfully destroyed table: %s", name());
+     return RC::SUCCESS;
+     // return RC::GENERIC_ERROR;
+ }
 
 
 
